@@ -82,11 +82,11 @@ if date_col:
         temp_df = df.copy()
         temp_df[date_col] = pd.to_datetime(temp_df[date_col], errors='coerce')
         timeline_data = temp_df[date_col].dt.floor('H').value_counts().sort_index()
-        st.markdown("**Incident Timeline Graph - Events Over Time:**")
-        st.bar_chart(timeline_data)
+        st.markdown("**Live ECG Heartbeat Rythm - Incident Monitor (Like Hospital):**")
+        st.line_chart(timeline_data)
         st.line_chart(timeline_data)
     except:
-        st.bar_chart(df[date_col].value_counts().head(30))
+        st.line_chart(df[date_col].value_counts().head(30))
 else:
     st.warning("No date/time column found for graph")
 
