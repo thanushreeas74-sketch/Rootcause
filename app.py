@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 
 st.set_page_config(page_title="Root Cause Analysis", layout="wide")
 
@@ -33,13 +32,12 @@ if not file:
     st.info("Upload a file to see full RCA workflow")
     st.stop()
 
-# ONLY 99 ROWS
 df = pd.read_csv(file, low_memory=False, nrows=99)
 st.success(f"Analyzing: {file.name} | Rows: {df.shape[0]} / 99 limit | Cols: {df.shape[1]}")
 
 # 1. DETECT - 99 ROWS & ALL COLS
 st.subheader("1. Detect - What is the incident?")
-st.write(f"File: {file.name} | Rows: 99 | All Columns: {', '.join(df.columns)}")
+st.write(f"File: {file.name} | Rows: 99 | Columns: {', '.join(df.columns)}")
 st.dataframe(df, use_container_width=True, height=450)
 
 # 2. EVIDENCE
@@ -61,7 +59,7 @@ st.write(f"Evidence 2: {dups} duplicates" if dups>0 else "Evidence 2: No duplica
 if len(num_cols)>0:
     st.write(f"Evidence 3: Column '{num_cols[0]}' Max={max_val}, Min={min_val}")
 
-# 3. TIMELINE - HEARTBEAT GRAPH LIKE HOSPITAL
+# 3. TIMELINE - HEARTBEAT LIKE HOSPITAL - NO MATPLOTLIB
 st.subheader("3. Timeline: BEFORE / DURING / AFTER - Live Heartbeat Monitor")
 st.info("BEFORE: Data ingestion started, system normal")
 st.error("DURING: Anomaly detected around middle of file")
@@ -93,23 +91,9 @@ for i in range(x_points):
     if 40 <= i <= 60:
         ecg[i] += norm[i] * 1.5 + 0.5
 
-fig, ax = plt.subplots(figsize=(12, 3))
-fig.patch.set_facecolor('black')
-ax.set_facecolor('black')
-ax.plot(x, ecg, color='#00FF41', linewidth=2)
-ax.fill_between(x, ecg, alpha=0.1, color='#00FF41')
-ax.set_xlim(0, 99)
-ax.set_ylim(-1.5, 4)
-ax.grid(True, color='#1a1a1a', linestyle='--', alpha=0.5)
-ax.set_xlabel("TIME ->", color='white')
-ax.set_ylabel("Signal", color='white')
-ax.tick_params(colors='white')
-ax.set_title("ECG - BEFORE [Normal]  DURING [Spike at 40-60]  AFTER [Recovery]", color='#00FF41', fontsize=10)
-ax.annotate('ANOMALY', xy=(50, ecg[50]), xytext=(55, 3.5),
-            arrowprops=dict(facecolor='red', shrink=0.05), color='red', fontweight='bold')
-
-st.pyplot(fig, use_container_width=True)
-st.caption("Green Line = Normal | Big Spikes = Your File Anomaly | Like Hospital ECG Beep-Beep")
+chart_data = pd.DataFrame({"Time": x, "ECG Signal": ecg})
+st.line_chart(chart_data, x="Time", y="ECG Signal", height=300)
+st.caption("Heart rhythm: Normal beep in BEFORE, BIG spike at 40-60 DURING anomaly, Normal AFTER - Like hospital ECG")
 
 # 4. RANK
 st.subheader("4. Rank Root Causes WITH 3 Evidences")
@@ -128,7 +112,7 @@ Rank 3: Application Logic Failure - 40%
 
 # 5. WHY
 st.subheader("5. Explain Why - WHY Data Crashed?")
-st.error(f"File {file.name} crashed because it contains {nulls} missing values and {dups} duplicates. Column '{num_cols[0] if len(num_cols)>0 else df.columns[0]}' shows extreme Max {max_val}. This caused processing failure.")
+st.error(f"File {file.name} crashed because extreme values. Column '{num_cols[0] if len(num_cols)>0 else df.columns[0]}' Max {max_val}. This caused processing failure.")
 
 # 6. PREVENTIVE
 st.subheader("6. Preventive Actions")
