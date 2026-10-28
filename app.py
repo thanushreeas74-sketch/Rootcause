@@ -93,7 +93,6 @@ for i in range(x_points):
 
 chart_data = pd.DataFrame({"Time": x, "ECG Signal": ecg})
 st.line_chart(chart_data, x="Time", y="ECG Signal", height=300)
-st.caption("Heart rhythm: Normal beep in BEFORE, BIG spike at 40-60 DURING anomaly, Normal AFTER - Like hospital ECG")
 
 # 4. RANK
 st.subheader("4. Rank Root Causes WITH 3 Evidences")
