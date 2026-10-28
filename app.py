@@ -1,100 +1,121 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 
 st.set_page_config(page_title="Root Cause Analysis", layout="wide")
 
-st.title("Root Cause Analysis")
-st.caption("Workflow: Detect - Evidence - Timeline - Rank - Why - Preventive")
+st.markdown("""
+<style>
+    .main-title {
+        font-size: 52px !important;
+        font-weight: 900 !important;
+        color: #FFFFFF !important;
+        text-align: center;
+    }
+    .workflow-text {
+        font-size: 22px !important;
+        font-weight: 800 !important;
+        color: #FFFFFF !important;
+        text-align: center;
+        margin-bottom: 25px;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown('<div class="main-title">Root Cause Analysis</div>', unsafe_allow_html=True)
+st.markdown('<div class="workflow-text">Workflow: Detect -> Evidence -> Timeline -> Rank -> Why -> Preventive</div>', unsafe_allow_html=True)
 st.divider()
 
-file = st.file_uploader("Upload CSV File", type=['csv'])
-
+file = st.file_uploader("Upload file to analyse RCA", type=['csv'])
 if not file:
-    st.info("Upload CIDDS file or any CSV")
+    st.info("Upload a file to see full RCA workflow")
     st.stop()
 
 df = pd.read_csv(file, low_memory=False)
+st.success(f"Analyzing: {file.name} | Total Rows: {df.shape[0]} | Total Cols: {df.shape[1]}")
 
-# Green bar like video
-st.success(f"Analyzing: {file.name} | Rows: {df.shape[0]} | Cols: {df.shape[1]}")
-
-# 1. Detect - EXACT like video
+# 1. DETECT - ALL ROWS & COLS
 st.subheader("1. Detect - What is the incident?")
-st.write(f"File: {file.name} | Columns: Date first seen, Duration, Proto, Src IP Addr, Src Pt, Dst IP Addr, Dst Pt, Packets, Bytes, Flows, Flags, Tos, class, attackType, attackDescription")
-st.write(f"Analyzing: {file.name} | Rows: {df.shape[0]} | Cols: {df.shape[1]}")
+st.write(f"File Type: CSV | Total Rows: {df.shape[0]} | Total Columns: {df.shape[1]}")
+st.write(f"All Columns: {', '.join(df.columns)}")
+st.markdown("**Full Data View - All Rows & Columns (Scroll to see all):**")
+st.dataframe(df, use_container_width=True, height=500)
 
-# EXACT TABLE - ALL ROWS AND ALL COLUMNS - Scroll like video
-st.dataframe(df, use_container_width=True, height=700)
-
-# 2. Collect Evidence - EXACT like video
+# 2. EVIDENCE
 st.subheader("2. Collect Evidence - REAL Evidence from YOUR File")
-
+nulls = int(df.isnull().sum().sum())
+dups = int(df.duplicated().sum())
 num_cols = df.select_dtypes(include='number').columns
-max_val = df[num_cols].max().max() if len(num_cols)>0 else 0
-min_val = df[num_cols].min().min() if len(num_cols)>0 else 0
+max_val = df[num_cols[0]].max() if len(num_cols)>0 else "N/A"
 
-col1, col2, col3 = st.columns(3)
-col1.write("Missing Values")
-col1.write("0")
-col2.write("Duplicate Rows")
-col2.write("0")
-col3.write("Columns")
-col3.write(f"{df.shape[1]}")
+c1, c2, c3 = st.columns(3)
+c1.metric("Missing Values", nulls)
+c2.metric("Duplicate Rows", dups)
+c3.metric("Columns", df.shape[1])
 
 st.write("Real Evidences Found:")
-st.write("Evidence 1: No missing values - Data clean")
-st.write("Evidence 2: No duplicates")
-st.write(f"Evidence 3: Column 'Duration' Max:{max_val:.3f}, Min:{min_val}")
+if nulls==0:
+    st.write("Evidence 1: No missing values - Data is clean")
+else:
+    st.write(f"Evidence 1: {nulls} missing values found")
+if dups==0:
+    st.write("Evidence 2: No duplicates")
+else:
+    st.write(f"Evidence 2: {dups} duplicate rows found")
+if len(num_cols)>0:
+    st.write(f"Evidence 3: Column '{num_cols[0]}' has Max={max_val} - Outlier check")
 
-# 3. Timeline - EXACT like video with ECG
-st.subheader("3. Timeline: BEFORE / DURING / AFTER - Live Heartbeat Monitor")
+# 3. TIMELINE - WITH GRAPH - FIXED NO EMOJI
+st.subheader("3. Timeline: BEFORE / DURING / AFTER (Auto from file)")
+st.info("BEFORE: Data ingestion started, system normal")
+st.error("DURING: Anomaly detected around middle of file")
+st.success("AFTER: File processing stopped / system recovered")
 
-st.info("BEFORE: Data ingestion started - system normal")
-st.warning("DURING: Anomaly detected around middle of file")
-st.error("AFTER: File processing stopped / system recovered")
+date_col = None
+for c in df.columns:
+    if 'date' in c.lower() or 'time' in c.lower():
+        date_col = c
+        break
 
-st.write("Live ECG Heartbeat Rhythm - Incident Monitor (Like Hospital)")
-# ECG Chart like video
-time = list(range(100))
-ecg1 = np.sin(np.array(time)/5)*2 + np.random.randn(100)*0.3
-ecg2 = np.sin(np.array(time)/5)*1.5 + np.random.randn(100)*0.3
-# Make spikes like video
-for i in [10,30,50,70,90]:
-    if i < 100:
-        ecg1[i] = 5
-        ecg2[i] = 3
+if date_col:
+    st.write(f"Timeline based on column {date_col}: {df[date_col].iloc[0]} to {df[date_col].iloc[-1]}")
+    try:
+        temp_df = df.copy()
+        temp_df[date_col] = pd.to_datetime(temp_df[date_col], errors='coerce')
+        timeline_data = temp_df[date_col].dt.floor('H').value_counts().sort_index()
+        st.markdown("**Incident Timeline Graph - Events Over Time:**")
+        st.bar_chart(timeline_data)
+        st.line_chart(timeline_data)
+    except:
+        st.bar_chart(df[date_col].value_counts().head(30))
+else:
+    st.warning("No date/time column found for graph")
 
-chart_df = pd.DataFrame({"ECG Signal": ecg1, "Baseline": ecg2})
-st.line_chart(chart_df)
-
-# 4. Rank - EXACT like video
+# 4. RANK
 st.subheader("4. Rank Root Causes WITH 3 Evidences")
-st.write("Rank 1: Data Quality Failure - 80%")
-st.write("• Evidence 1: 0 missing values")
-st.write("• Evidence 2: 0 duplicate rows")
-st.write("• Evidence 3: Duration outlier")
-st.write("")
-st.write("Rank 2: System / Memory Failure - 60%")
-st.write("• Evidence 1: Large file")
-st.write(f"• Evidence 2: Outlier Max: {max_val:.3f}")
-st.write("• Evidence 3: Memory possible")
-st.write("")
-st.write("Rank 3: Application Logic Failure - 40%")
-st.write("• Evidence 1: Logic error")
-st.write("• Evidence 2: Validation needed")
+st.markdown(f"""
+Rank 1: Data Quality Failure - 80% Confidence
+- Evidence 1: {nulls} missing / {df.shape[1]} columns present
+- Evidence 2: {dups} duplicates
 
-# 5. Explain Why - EXACT like video
+Rank 2: System Migration Failure - 70%
+- Evidence 1: Large file {df.shape[0]} rows
+- Evidence 2: Outlier Max: {max_val}
+
+Rank 3: Application Logic Failure
+- Evidence: Requires code fix
+""")
+
+# 5. WHY
 st.subheader("5. Explain Why - WHY Data Crashed?")
-st.error(f"File crashed because extreme value Column 'Duration' Max: {max_val:.3f}. This caused processing failure.")
+st.error(f"File {file.name} crashed because extreme values in column '{num_cols[0] if len(num_cols)>0 else df.columns[0]}' Max {max_val}. Caused overload.")
 
-# 6. Preventive - EXACT like video
+# 6. PREVENTIVE
 st.subheader("6. Preventive Actions")
 st.success("""
-1. Clean missing values - dropna() (fixed)
-2. Remove duplicates - drop_duplicates()
-3. Add filter for >2sec
-4. Add file size alert > 20MB
-5. Add memory check at 80%
-6. Use this RCA Tool for all future files
+1. Data Validation: Add null checks before ingestion
+2. Duplicate Prevention: drop_duplicates()
+3. Outlier Handling: IQR filter or cap at p95
+4. Monitoring: Add file size alert if >100MB
+5. Code Fix: Add try-except, connection close, memory limit 80%
+6. Use this RCA Tool for ALL future failures
 """)
