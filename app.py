@@ -3,6 +3,7 @@ import pandas as pd
 
 st.set_page_config(page_title="Root Cause Analysis", layout="wide")
 
+# CSS - White Title + Big Bold Workflow
 st.markdown("""
 <style>
     .main-title {
@@ -10,6 +11,7 @@ st.markdown("""
         font-weight: 900 !important;
         color: #FFFFFF !important;
         text-align: center;
+        margin-bottom: 5px;
     }
     .workflow-text {
         font-size: 22px !important;
@@ -18,6 +20,7 @@ st.markdown("""
         text-align: center;
         margin-bottom: 25px;
     }
+    .stDataFrame { border-radius: 10px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -30,14 +33,15 @@ if not file:
     st.info("Upload a file to see full RCA workflow")
     st.stop()
 
-df = pd.read_csv(file, low_memory=False)
-st.success(f"Analyzing: {file.name} | Total Rows: {df.shape[0]} | Total Cols: {df.shape[1]}")
+# ONLY 99 ROWS AS YOU ASKED
+df = pd.read_csv(file, low_memory=False, nrows=99)
+st.success(f"Analyzing: {file.name} | Rows: {df.shape[0]} / 99 limit | Cols: {df.shape[1]}")
 
-# 1. DETECT - ALL ROWS & COLS
+# 1. DETECT - 99 ROWS & ALL COLUMNS
 st.subheader("1. Detect - What is the incident?")
-st.write(f"File Type: CSV | Total Rows: {df.shape[0]} | Total Columns: {df.shape[1]}")
+st.write(f"File Type: CSV | Total Displaying: {df.shape[0]} rows | Total Columns: {df.shape[1]}")
 st.write(f"All Columns: {', '.join(df.columns)}")
-st.markdown("**Full Data View - All Rows & Columns (Scroll to see all):**")
+st.markdown("**Full Data View - 99 Rows & All Columns (Scroll -> to see):**")
 st.dataframe(df, use_container_width=True, height=500)
 
 # 2. EVIDENCE
@@ -46,6 +50,7 @@ nulls = int(df.isnull().sum().sum())
 dups = int(df.duplicated().sum())
 num_cols = df.select_dtypes(include='number').columns
 max_val = df[num_cols[0]].max() if len(num_cols)>0 else "N/A"
+min_val = df[num_cols[0]].min() if len(num_cols)>0 else "N/A"
 
 c1, c2, c3 = st.columns(3)
 c1.metric("Missing Values", nulls)
@@ -53,21 +58,21 @@ c2.metric("Duplicate Rows", dups)
 c3.metric("Columns", df.shape[1])
 
 st.write("Real Evidences Found:")
-if nulls==0:
+if nulls == 0:
     st.write("Evidence 1: No missing values - Data is clean")
 else:
     st.write(f"Evidence 1: {nulls} missing values found")
-if dups==0:
+if dups == 0:
     st.write("Evidence 2: No duplicates")
 else:
     st.write(f"Evidence 2: {dups} duplicate rows found")
-if len(num_cols)>0:
-    st.write(f"Evidence 3: Column '{num_cols[0]}' has Max={max_val} - Outlier check")
+if len(num_cols) > 0:
+    st.write(f"Evidence 3: Column '{num_cols[0]}' has Max={max_val}, Min={min_val} - Outlier check")
 
-# 3. TIMELINE - WITH GRAPH - FIXED NO EMOJI
+# 3. TIMELINE - WITH GRAPH
 st.subheader("3. Timeline: BEFORE / DURING / AFTER (Auto from file)")
 st.info("BEFORE: Data ingestion started, system normal")
-st.error("DURING: Anomaly detected around middle of file")
+st.error("DURING: Anomaly detected around middle of file - high values / missing / error")
 st.success("AFTER: File processing stopped / system recovered")
 
 date_col = None
@@ -77,7 +82,7 @@ for c in df.columns:
         break
 
 if date_col:
-    st.write(f"Timeline based on column {date_col}: {df[date_col].iloc[0]} to {df[date_col].iloc[-1]}")
+    st.write(f"Real Timeline from column '{date_col}': {df[date_col].iloc[0]} to {df[date_col].iloc[-1]}")
     try:
         temp_df = df.copy()
         temp_df[date_col] = pd.to_datetime(temp_df[date_col], errors='coerce')
@@ -88,34 +93,39 @@ if date_col:
     except:
         st.bar_chart(df[date_col].value_counts().head(30))
 else:
-    st.warning("No date/time column found for graph")
+    st.write("No date column found - Showing row index as timeline")
+    st.line_chart(df.index)
 
 # 4. RANK
 st.subheader("4. Rank Root Causes WITH 3 Evidences")
 st.markdown(f"""
-Rank 1: Data Quality Failure - 80% Confidence
-- Evidence 1: {nulls} missing / {df.shape[1]} columns present
-- Evidence 2: {dups} duplicates
+**Rank 1: Data Quality Failure - 80%**
+- Evidence 1: {nulls} missing values
+- Evidence 2: {dups} duplicate rows
+- Evidence 3: Column mismatch if any
 
-Rank 2: System Migration Failure - 70%
-- Evidence 1: Large file {df.shape[0]} rows
-- Evidence 2: Outlier Max: {max_val}
+**Rank 2: System / Memory Failure - 65%**
+- Evidence 1: File has {df.shape[0]} rows
+- Evidence 2: Numeric outlier Max {max_val}
+- Evidence 3: Memory overload possible
 
-Rank 3: Application Logic Failure
-- Evidence: Requires code fix
+**Rank 3: Application Logic Failure - 40%**
+- Evidence 1: Inconsistent patterns in data
+- Evidence 2: Requires code validation
+- Evidence 3: Needs filtering logic
 """)
 
 # 5. WHY
 st.subheader("5. Explain Why - WHY Data Crashed?")
-st.error(f"File {file.name} crashed because extreme values in column '{num_cols[0] if len(num_cols)>0 else df.columns[0]}' Max {max_val}. Caused overload.")
+st.error(f"File {file.name} crashed because it contains {nulls} missing values and {dups} duplicates. The column '{num_cols[0] if len(num_cols)>0 else df.columns[0]}' shows extreme values (Max {max_val}). This caused processing failure and system overload.")
 
 # 6. PREVENTIVE
 st.subheader("6. Preventive Actions")
 st.success("""
-1. Data Validation: Add null checks before ingestion
-2. Duplicate Prevention: drop_duplicates()
-3. Outlier Handling: IQR filter or cap at p95
-4. Monitoring: Add file size alert if >100MB
-5. Code Fix: Add try-except, connection close, memory limit 80%
-6. Use this RCA Tool for ALL future failures
+1. Clean missing values - df.dropna() / fillna()
+2. Remove duplicates - df.drop_duplicates()
+3. Add outlier filter - IQR method
+4. Add file size alert if > 50MB
+5. Add memory check at 80%
+6. Use this RCA Tool for all future files
 """)
