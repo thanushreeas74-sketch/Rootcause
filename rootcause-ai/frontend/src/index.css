@@ -1,0 +1,6 @@
+@tailwind base; @tailwind components; @tailwind utilities;
+body { font-family: 'Segoe UI', system-ui, sans-serif; color: #fff; }
+.card { @apply bg-navy-800 border border-navy-700 rounded-lg p-4; }
+.btn { @apply px-3 py-1.5 rounded-md bg-cyan-500 text-navy-950 text-sm font-semibold hover:bg-cyan-400 disabled:opacity-50; }
+.btn2 { @apply px-3 py-1.5 rounded-md border border-navy-700 text-sm hover:bg-navy-700; }
+.inp { @apply bg-navy-900 border border-navy-700 rounded-md px-2 py-1.5 text-sm w-full; }

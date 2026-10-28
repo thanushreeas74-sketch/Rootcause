@@ -1,0 +1,4 @@
+timestamp,service,level,message
+2025-03-14T10:24:00Z,postgres-db,WARN,Connection pool usage at 85%
+2025-03-14T10:27:00Z,order-service,ERROR,Connection pool exhausted: timeout waiting for connection
+2025-03-14T10:28:00Z,api-gateway,ERROR,TimeoutError: upstream order-service did not respond within 5000ms
