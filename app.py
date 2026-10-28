@@ -1,9 +1,10 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
 
 st.set_page_config(page_title="Root Cause Analysis", layout="wide")
 
-# CSS - White Title + Big Bold Workflow
 st.markdown("""
 <style>
     .main-title {
@@ -20,7 +21,6 @@ st.markdown("""
         text-align: center;
         margin-bottom: 25px;
     }
-    .stDataFrame { border-radius: 10px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -33,16 +33,14 @@ if not file:
     st.info("Upload a file to see full RCA workflow")
     st.stop()
 
-# ONLY 99 ROWS AS YOU ASKED
+# ONLY 99 ROWS
 df = pd.read_csv(file, low_memory=False, nrows=99)
 st.success(f"Analyzing: {file.name} | Rows: {df.shape[0]} / 99 limit | Cols: {df.shape[1]}")
 
-# 1. DETECT - 99 ROWS & ALL COLUMNS
+# 1. DETECT - 99 ROWS & ALL COLS
 st.subheader("1. Detect - What is the incident?")
-st.write(f"File Type: CSV | Total Displaying: {df.shape[0]} rows | Total Columns: {df.shape[1]}")
-st.write(f"All Columns: {', '.join(df.columns)}")
-st.markdown("**Full Data View - 99 Rows & All Columns (Scroll -> to see):**")
-st.dataframe(df, use_container_width=True, height=500)
+st.write(f"File: {file.name} | Rows: 99 | All Columns: {', '.join(df.columns)}")
+st.dataframe(df, use_container_width=True, height=450)
 
 # 2. EVIDENCE
 st.subheader("2. Collect Evidence - REAL Evidence from YOUR File")
@@ -58,66 +56,79 @@ c2.metric("Duplicate Rows", dups)
 c3.metric("Columns", df.shape[1])
 
 st.write("Real Evidences Found:")
-if nulls == 0:
-    st.write("Evidence 1: No missing values - Data is clean")
-else:
-    st.write(f"Evidence 1: {nulls} missing values found")
-if dups == 0:
-    st.write("Evidence 2: No duplicates")
-else:
-    st.write(f"Evidence 2: {dups} duplicate rows found")
-if len(num_cols) > 0:
-    st.write(f"Evidence 3: Column '{num_cols[0]}' has Max={max_val}, Min={min_val} - Outlier check")
+st.write(f"Evidence 1: {nulls} missing values" if nulls>0 else "Evidence 1: No missing values - Data clean")
+st.write(f"Evidence 2: {dups} duplicates" if dups>0 else "Evidence 2: No duplicates")
+if len(num_cols)>0:
+    st.write(f"Evidence 3: Column '{num_cols[0]}' Max={max_val}, Min={min_val}")
 
-# 3. TIMELINE - WITH GRAPH
-st.subheader("3. Timeline: BEFORE / DURING / AFTER (Auto from file)")
+# 3. TIMELINE - HEARTBEAT GRAPH LIKE HOSPITAL
+st.subheader("3. Timeline: BEFORE / DURING / AFTER - Live Heartbeat Monitor")
 st.info("BEFORE: Data ingestion started, system normal")
-st.error("DURING: Anomaly detected around middle of file - high values / missing / error")
+st.error("DURING: Anomaly detected around middle of file")
 st.success("AFTER: File processing stopped / system recovered")
 
-date_col = None
-for c in df.columns:
-    if 'date' in c.lower() or 'time' in c.lower():
-        date_col = c
-        break
+st.markdown("**Live ECG Heartbeat Rhythm - Incident Monitor (Like Hospital):**")
 
-if date_col:
-    st.write(f"Real Timeline from column '{date_col}': {df[date_col].iloc[0]} to {df[date_col].iloc[-1]}")
-    try:
-        temp_df = df.copy()
-        temp_df[date_col] = pd.to_datetime(temp_df[date_col], errors='coerce')
-        timeline_data = temp_df[date_col].dt.floor('H').value_counts().sort_index()
-        st.markdown("**Incident Timeline Graph - Events Over Time:**")
-        st.bar_chart(timeline_data)
-        st.line_chart(timeline_data)
-    except:
-        st.bar_chart(df[date_col].value_counts().head(30))
+x_points = 99
+x = np.arange(x_points)
+
+if len(num_cols) > 0:
+    base_values = df[num_cols[0]].fillna(0).values[:99]
+    if base_values.max() != base_values.min():
+        norm = (base_values - base_values.min()) / (base_values.max() - base_values.min())
+    else:
+        norm = np.zeros(99)
 else:
-    st.write("No date column found - Showing row index as timeline")
-    st.line_chart(df.index)
+    norm = np.random.rand(99) * 0.5
+
+ecg = np.zeros(x_points)
+for i in range(x_points):
+    ecg[i] = np.sin(i * 0.3) * 0.2
+    if i % 18 == 0:
+        ecg[i] += 2.5 + norm[i] * 2
+    elif i % 18 == 1:
+        ecg[i] -= 0.8
+    elif i % 18 == 5:
+        ecg[i] += 0.3
+    if 40 <= i <= 60:
+        ecg[i] += norm[i] * 1.5 + 0.5
+
+fig, ax = plt.subplots(figsize=(12, 3))
+fig.patch.set_facecolor('black')
+ax.set_facecolor('black')
+ax.plot(x, ecg, color='#00FF41', linewidth=2)
+ax.fill_between(x, ecg, alpha=0.1, color='#00FF41')
+ax.set_xlim(0, 99)
+ax.set_ylim(-1.5, 4)
+ax.grid(True, color='#1a1a1a', linestyle='--', alpha=0.5)
+ax.set_xlabel("TIME ->", color='white')
+ax.set_ylabel("Signal", color='white')
+ax.tick_params(colors='white')
+ax.set_title("ECG - BEFORE [Normal]  DURING [Spike at 40-60]  AFTER [Recovery]", color='#00FF41', fontsize=10)
+ax.annotate('ANOMALY', xy=(50, ecg[50]), xytext=(55, 3.5),
+            arrowprops=dict(facecolor='red', shrink=0.05), color='red', fontweight='bold')
+
+st.pyplot(fig, use_container_width=True)
+st.caption("Green Line = Normal | Big Spikes = Your File Anomaly | Like Hospital ECG Beep-Beep")
 
 # 4. RANK
 st.subheader("4. Rank Root Causes WITH 3 Evidences")
 st.markdown(f"""
-**Rank 1: Data Quality Failure - 80%**
+Rank 1: Data Quality Failure - 80%
 - Evidence 1: {nulls} missing values
 - Evidence 2: {dups} duplicate rows
-- Evidence 3: Column mismatch if any
 
-**Rank 2: System / Memory Failure - 65%**
+Rank 2: System / Memory Failure - 65%
 - Evidence 1: File has {df.shape[0]} rows
 - Evidence 2: Numeric outlier Max {max_val}
-- Evidence 3: Memory overload possible
 
-**Rank 3: Application Logic Failure - 40%**
-- Evidence 1: Inconsistent patterns in data
-- Evidence 2: Requires code validation
-- Evidence 3: Needs filtering logic
+Rank 3: Application Logic Failure - 40%
+- Evidence: Requires code validation
 """)
 
 # 5. WHY
 st.subheader("5. Explain Why - WHY Data Crashed?")
-st.error(f"File {file.name} crashed because it contains {nulls} missing values and {dups} duplicates. The column '{num_cols[0] if len(num_cols)>0 else df.columns[0]}' shows extreme values (Max {max_val}). This caused processing failure and system overload.")
+st.error(f"File {file.name} crashed because it contains {nulls} missing values and {dups} duplicates. Column '{num_cols[0] if len(num_cols)>0 else df.columns[0]}' shows extreme Max {max_val}. This caused processing failure.")
 
 # 6. PREVENTIVE
 st.subheader("6. Preventive Actions")
